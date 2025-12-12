@@ -6,7 +6,6 @@ uvicorn[standard]==0.27.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-
 ###############################################
 # Database & ORM
 ###############################################
@@ -15,12 +14,10 @@ alembic==1.13.1
 psycopg2-binary==2.9.9
 asyncpg==0.29.0
 
-
 ###############################################
 # Caching & Queue
 ###############################################
 redis==5.0.1
-
 
 ###############################################
 # Authentication & Security
@@ -29,8 +26,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 bcrypt==4.1.2
-email-validator==2.1.0.post1   # Correct package for FastAPI
-
+email-validator==2.1.0.post1
 
 ###############################################
 # AI / LLM Integrations
@@ -39,15 +35,13 @@ openai==1.10.0
 anthropic==0.8.1
 langchain==0.1.4
 tiktoken==0.5.2
-qdrant-client==1.7.0
-
+qdrant-client==1.16.1   # UPDATED for Python 3.13 compatibility
 
 ###############################################
 # File Parsing (PDF/DOCX)
 ###############################################
 pypdf2==3.0.1
-docx2txt==0.8    # python-docx does NOT support Python 3.12
-
+docx2txt==0.8
 
 ###############################################
 # Utilities
