@@ -1,0 +1,68 @@
+# ============================================
+# JobForge AI - .gitignore
+# ============================================
+
+# Environment Variables (NEVER COMMIT!)
+.env
+.env.*
+!.env.example
+*.env
+.secrets/
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.turbo
+frontend/.vercel
+
+# Backend Python
+backend-python/venv/
+backend-python/env/
+backend-python/.venv/
+backend-python/source/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Backend Go
+backend-go/vendor/
+backend-go/bin/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+redis_data/
+qdrant_data/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# Temporary
+*.tmp
+.cache/
+temp/

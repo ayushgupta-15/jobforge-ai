@@ -1,0 +1,37 @@
+# Docker Compose configuration will be added here
+# See infrastructure/docker/ for the complete setup
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobforge-postgres
+    environment:
+      POSTGRES_USER: jobforge
+      POSTGRES_PASSWORD: jobforge_dev_password
+      POSTGRES_DB: jobforge_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: jobforge-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
