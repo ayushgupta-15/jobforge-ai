@@ -1,10 +1,12 @@
 """AI-powered resume analysis helpers."""
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 from typing import List, Optional
 
+import httpx
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 
@@ -32,20 +34,36 @@ class ResumeAnalysisResult(BaseModel):
 
 
 _openai_client: Optional[OpenAI] = None
+_httpx_client: Optional[httpx.Client] = None
 
 
 def _get_client() -> OpenAI:
-    global _openai_client
+    global _openai_client, _httpx_client
     if _openai_client is None:
+        # Provide a custom HTTPX client so we control compatibility with the OpenAI SDK.
+        _httpx_client = httpx.Client(
+            base_url=settings.OPENAI_BASE_URL,
+            timeout=httpx.Timeout(60.0, connect=30.0),
+            follow_redirects=True,
+        )
         _openai_client = OpenAI(
             api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_BASE_URL,   # 👈 REQUIRED
-            default_headers={                  # 👈 REQUIRED
-                "HTTP-Referer": "http://localhost:3000",  # or your domain
+            base_url=settings.OPENAI_BASE_URL,
+            default_headers={
+                "HTTP-Referer": "http://localhost:3000",
                 "X-Title": "JobForge AI",
             },
+            http_client=_httpx_client,
         )
     return _openai_client
+
+
+def _shutdown_httpx_client() -> None:
+    if _httpx_client and not _httpx_client.is_closed:
+        _httpx_client.close()
+
+
+atexit.register(_shutdown_httpx_client)
     
 
 def _build_prompt(*, resume_text: str, job_title: Optional[str], job_description: Optional[str], target_keywords: Optional[List[str]]) -> str:
