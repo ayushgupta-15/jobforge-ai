@@ -18,16 +18,23 @@ def get_primary_resume(db: Session, user_id: UUID) -> Optional[Resume]:
     ).first()
 
 def create_resume(db: Session, resume: ResumeCreate, user_id: UUID) -> Resume:
+    has_existing_resume = db.query(Resume.id).filter(Resume.user_id == user_id).first() is not None
+    should_be_primary = bool(resume.is_primary) or not has_existing_resume
+
     db_resume = Resume(
         user_id=user_id,
         title=resume.title,
         file_url=resume.file_url,
         file_type=resume.file_type,
-        is_primary=resume.is_primary if resume.is_primary else False
+        raw_text=resume.raw_text,
+        is_primary=should_be_primary,
     )
     db.add(db_resume)
     db.commit()
     db.refresh(db_resume)
+
+    if should_be_primary:
+        db_resume = set_primary_resume(db, user_id, db_resume.id) or db_resume
     return db_resume
 
 def update_resume(db: Session, resume_id: UUID, resume_update: ResumeUpdate) -> Optional[Resume]:

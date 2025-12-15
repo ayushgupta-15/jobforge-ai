@@ -11,7 +11,7 @@ class ResumeBase(BaseModel):
     is_primary: Optional[bool] = False
 
 class ResumeCreate(ResumeBase):
-    pass
+    raw_text: Optional[str] = None
 
 class ResumeUpdate(BaseModel):
     title: Optional[str] = None
@@ -22,6 +22,7 @@ class ResumeUpdate(BaseModel):
     strengths: Optional[List[str]] = None
     weaknesses: Optional[List[str]] = None
     suggestions: Optional[List[str]] = None
+    missing_keywords: Optional[List[str]] = None
 
 class ResumeResponse(ResumeBase):
     id: UUID
@@ -32,8 +33,14 @@ class ResumeResponse(ResumeBase):
     strengths: Optional[List[str]] = None
     weaknesses: Optional[List[str]] = None
     suggestions: Optional[List[str]] = None
+    missing_keywords: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+class ResumeAnalysisRequest(BaseModel):
+    job_title: Optional[str] = None
+    job_description: Optional[str] = None
+    target_keywords: Optional[List[str]] = None

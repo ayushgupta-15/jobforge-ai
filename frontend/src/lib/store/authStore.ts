@@ -49,26 +49,38 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
     } finally {
       set({ user: null, isAuthenticated: false, isLoading: false, error: null });
     }
   },
 
   fetchUser: async () => {
-    if (!authService.isAuthenticated()) {
-      set({ isAuthenticated: false, user: null });
-      return;
+    // Check if tokens exist before making request
+    if (typeof window !== 'undefined') {
+      const hasToken = localStorage.getItem('access_token');
+      if (!hasToken) {
+        set({ isAuthenticated: false, user: null, isLoading: false });
+        return;
+      }
     }
+
     set({ isLoading: true, error: null });
     try {
       const user = await authService.getCurrentUser();
       set({ user, isAuthenticated: true, isLoading: false, error: null });
     } catch (error: any) {
+      // If fetch fails, clear tokens and set unauthenticated
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: error.response?.data?.detail || 'Failed to fetch user',
+        error: error.response?.data?.detail || 'Session expired',
       });
     }
   },

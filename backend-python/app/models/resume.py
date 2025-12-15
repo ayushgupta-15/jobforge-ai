@@ -21,6 +21,7 @@ class Resume(Base):
     strengths = Column(JSON, nullable=True)  # List of strengths
     weaknesses = Column(JSON, nullable=True)  # List of weaknesses
     suggestions = Column(JSON, nullable=True)  # List of improvement suggestions
+    missing_keywords = Column(JSON, nullable=True)  # Keywords the resume should include
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     

@@ -3,8 +3,10 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import time
+from pathlib import Path
 from app.core.config import settings
 from app.core.database import init_db
 from app.api.v1.endpoints import auth, resume, application, interview, job
@@ -26,6 +28,10 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+upload_root = Path(settings.UPLOAD_DIR).expanduser().resolve()
+upload_root.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=upload_root), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

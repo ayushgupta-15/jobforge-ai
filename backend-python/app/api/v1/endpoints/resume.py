@@ -1,5 +1,6 @@
 """JobForge AI - Resume Endpoints"""
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -7,8 +8,11 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.resume import Resume
-from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse
+from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse, ResumeAnalysisRequest
 from app.crud import resume as resume_crud
+from app.services.file_storage import save_resume_file, resolve_file_path
+from app.services.resume_processing import extract_text_from_file
+from app.services.resume_analysis import analyze_resume_text, ResumeAnalysisError
 
 router = APIRouter()
 
@@ -41,14 +45,20 @@ async def upload_resume(
     db: Session = Depends(get_db)
 ):
     """Upload a new resume"""
-    # In a real application, you would handle file upload to cloud storage
-    # For now, we'll just create the resume record
-    file_content = await file.read()
-    
+    file_bytes = await file.read()
+    stored_path, relative_url = save_resume_file(
+        user_id=current_user.id,
+        filename=file.filename,
+        content_type=file.content_type,
+        file_bytes=file_bytes,
+    )
+    raw_text = extract_text_from_file(stored_path)
+
     resume_create = ResumeCreate(
         title=title,
-        file_url=f"/uploads/resumes/{file.filename}",
+        file_url=relative_url,
         file_type=file.content_type,
+        raw_text=raw_text,
     )
     resume = resume_crud.create_resume(db, resume_create, current_user.id)
     return resume
@@ -96,9 +106,10 @@ def set_primary_resume(
     updated_resume = resume_crud.set_primary_resume(db, current_user.id, resume_id)
     return updated_resume
 
-@router.post("/{resume_id}/analyze")
+@router.post("/{resume_id}/analyze", response_model=ResumeResponse)
 def analyze_resume(
     resume_id: UUID,
+    analysis_input: ResumeAnalysisRequest | None = Body(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -106,16 +117,57 @@ def analyze_resume(
     resume = resume_crud.get_resume(db, resume_id)
     if not resume or resume.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found")
-    
-    # Mock analysis - in real implementation, call AI service
-    analysis = {
-        "ats_score": 78,
-        "keyword_match_score": 85,
-        "strengths": ["Clear structure", "Good use of keywords", "Professional format"],
-        "weaknesses": ["Missing metrics", "Could add more action verbs"],
-        "suggestions": ["Add quantifiable achievements", "Include more technical skills", "Use industry keywords"]
-    }
-    
-    resume_update = ResumeUpdate(**analysis)
+
+    # Ensure we have raw text available for analysis
+    if not resume.raw_text and resume.file_url:
+        file_path = resolve_file_path(resume.file_url)
+        extracted_text = extract_text_from_file(file_path)
+        if extracted_text:
+            resume = resume_crud.update_resume(
+                db,
+                resume_id,
+                ResumeUpdate(raw_text=extracted_text)
+            ) or resume
+
+    if not resume.raw_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Resume text not available. Please re-upload your resume."
+        )
+
+    try:
+        analysis_result = analyze_resume_text(
+            resume_text=resume.raw_text,
+            job_title=analysis_input.job_title if analysis_input else None,
+            job_description=analysis_input.job_description if analysis_input else None,
+            target_keywords=analysis_input.target_keywords if analysis_input else None,
+        )
+    except ResumeAnalysisError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+
+    resume_update = ResumeUpdate(**analysis_result)
     updated_resume = resume_crud.update_resume(db, resume_id, resume_update)
+    if not updated_resume:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save analysis results")
     return updated_resume
+
+@router.get("/{resume_id}/download")
+def download_resume(
+    resume_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download the original resume file"""
+    resume = resume_crud.get_resume(db, resume_id)
+    if not resume or resume.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found")
+    if not resume.file_url:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No file stored for this resume")
+
+    file_path = resolve_file_path(resume.file_url)
+    media_type = resume.file_type or "application/octet-stream"
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
+        filename=file_path.name
+    )
