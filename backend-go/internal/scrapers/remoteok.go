@@ -3,8 +3,10 @@ package scrapers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -51,7 +53,8 @@ func (s *RemoteOKScraper) Scrape() ([]*models.Job, error) {
 	jobs := make([]*models.Job, 0, len(raw))
 	for _, item := range raw {
 		// First entry is metadata, so skip entries without ID/title/company.
-		if item.ID == 0 || item.Position == "" || item.Company == "" {
+		id := parseRemoteOKID(item.ID)
+		if id == "" || id == "0" || item.Position == "" || item.Company == "" {
 			continue
 		}
 		if job := convertRemoteOKJob(item); job != nil {
@@ -64,27 +67,32 @@ func (s *RemoteOKScraper) Scrape() ([]*models.Job, error) {
 }
 
 type remoteOKJob struct {
-	ID          int      `json:"id"`
-	Date        string   `json:"date"`
-	Company     string   `json:"company"`
-	Position    string   `json:"position"`
-	Description string   `json:"description"`
-	Location    string   `json:"location"`
-	SalaryMin   string   `json:"salary_min"`
-	SalaryMax   string   `json:"salary_max"`
-	Type        string   `json:"job_type"`
-	URL         string   `json:"url"`
-	Tags        []string `json:"tags"`
+	ID          json.RawMessage `json:"id"`
+	Slug        string          `json:"slug"`
+	Epoch       *int64          `json:"epoch"`
+	Date        string          `json:"date"`
+	Company     string          `json:"company"`
+	CompanyLogo string          `json:"company_logo"`
+	Position    string          `json:"position"`
+	Description string          `json:"description"`
+	Location    string          `json:"location"`
+	SalaryMin   json.RawMessage `json:"salary_min"`
+	SalaryMax   json.RawMessage `json:"salary_max"`
+	Currency    string          `json:"currency"`
+	Type        string          `json:"job_type"`
+	URL         string          `json:"url"`
+	ApplyURL    string          `json:"apply_url"`
+	Tags        []string        `json:"tags"`
 }
 
 func convertRemoteOKJob(item remoteOKJob) *models.Job {
 	remoteType := "remote"
-	description := strings.TrimSpace(item.Description)
+	rawDesc := strings.TrimSpace(item.Description)
+	description := strings.TrimSpace(stripHTMLTags(html.UnescapeString(rawDesc)))
 	if description == "" {
 		description = fmt.Sprintf("%s position at %s", item.Position, item.Company)
 	}
 
-	rawDesc := description
 	jobType := item.Type
 	if jobType == "" {
 		jobType = "full-time"
@@ -96,29 +104,43 @@ func convertRemoteOKJob(item remoteOKJob) *models.Job {
 			postedDate = timePtr(parsed)
 		}
 	}
+	if postedDate == nil && item.Epoch != nil {
+		t := time.Unix(*item.Epoch, 0)
+		postedDate = timePtr(t)
+	}
+
+	location := strings.TrimSpace(item.Location)
+	if location == "" {
+		location = "Remote"
+	}
 
 	var salaryMin *float64
-	var salaryMax *float64
-	if val, err := parseSalary(item.SalaryMin); err == nil {
-		salaryMin = &val
+	if val := parseRemoteOKSalary(item.SalaryMin); val != nil {
+		salaryMin = val
 	}
-	if val, err := parseSalary(item.SalaryMax); err == nil {
-		salaryMax = &val
+
+	var salaryMax *float64
+	if val := parseRemoteOKSalary(item.SalaryMax); val != nil {
+		salaryMax = val
 	}
 
 	sourceURL := item.URL
 	if !strings.HasPrefix(sourceURL, "http") {
 		sourceURL = "https://remoteok.com" + sourceURL
 	}
+	validatedURL := sourceURL
+	if strings.TrimSpace(item.ApplyURL) != "" {
+		validatedURL = item.ApplyURL
+	}
 
 	return &models.Job{
 		Title:              strings.TrimSpace(item.Position),
 		Company:            strings.TrimSpace(item.Company),
-		Location:           strings.TrimSpace(item.Location),
+		Location:           location,
 		RemoteType:         stringPtr(remoteType),
 		Description:        description,
 		SourceURL:          stringPtr(sourceURL),
-		ValidatedSourceURL: stringPtr(sourceURL),
+		ValidatedSourceURL: stringPtr(validatedURL),
 		JobType:            stringPtr(jobType),
 		RawDescription:     &rawDesc,
 		SalaryMin:          salaryMin,
@@ -129,15 +151,57 @@ func convertRemoteOKJob(item remoteOKJob) *models.Job {
 	}
 }
 
-func parseSalary(raw string) (float64, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0, fmt.Errorf("empty salary")
+func parseRemoteOKSalary(raw json.RawMessage) *float64 {
+	if len(raw) == 0 {
+		return nil
 	}
-	raw = strings.ReplaceAll(raw, "$", "")
-	raw = strings.ReplaceAll(raw, ",", "")
-	raw = strings.Split(raw, " ")[0]
-	return strconv.ParseFloat(raw, 64)
+
+	var num float64
+	if err := json.Unmarshal(raw, &num); err == nil && num > 0 {
+		return &num
+	}
+
+	var str string
+	if err := json.Unmarshal(raw, &str); err == nil {
+		str = strings.TrimSpace(str)
+		if str == "" {
+			return nil
+		}
+		str = strings.ReplaceAll(str, "$", "")
+		str = strings.ReplaceAll(str, ",", "")
+		parts := strings.Fields(str)
+		if len(parts) == 0 {
+			return nil
+		}
+		if val, err := strconv.ParseFloat(parts[0], 64); err == nil {
+			return &val
+		}
+	}
+
+	return nil
+}
+
+func parseRemoteOKID(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		return strings.TrimSpace(asString)
+	}
+
+	var asInt int64
+	if err := json.Unmarshal(raw, &asInt); err == nil {
+		return strconv.FormatInt(asInt, 10)
+	}
+
+	return ""
+}
+
+func stripHTMLTags(raw string) string {
+	re := regexp.MustCompile("<[^>]*>")
+	return re.ReplaceAllString(raw, " ")
 }
 
 func stringPtr(val string) *string {

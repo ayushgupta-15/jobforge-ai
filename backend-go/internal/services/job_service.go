@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 
@@ -23,8 +24,12 @@ func (s *JobService) SearchJobs(params models.JobSearchParams) ([]models.Job, er
 		SELECT id, title, company, location, remote_type, description, 
 		       requirements, raw_description, salary_min, salary_max, job_type, 
 		       experience_level, source_url, validated_source_url, source_site,
-		       ai_summary, ai_highlights, ai_required_skills, ai_compensation, ai_remote_policy,
-		       is_active, posted_date, ai_last_enriched_at, created_at
+		       NULL::text AS ai_summary,
+		       ARRAY[]::text[] AS ai_highlights,
+		       ARRAY[]::text[] AS ai_required_skills,
+		       NULL::text AS ai_compensation,
+		       NULL::text AS ai_remote_policy,
+		       is_active, posted_date, NULL::timestamp AS ai_last_enriched_at, created_at
 		FROM jobs
 		WHERE is_active = true
 	`
@@ -118,8 +123,12 @@ func (s *JobService) GetJobByID(id string) (*models.Job, error) {
 		SELECT id, title, company, location, remote_type, description, 
 		       requirements, raw_description, salary_min, salary_max, job_type, 
 		       experience_level, source_url, validated_source_url, source_site,
-		       ai_summary, ai_highlights, ai_required_skills, ai_compensation, ai_remote_policy,
-		       is_active, posted_date, ai_last_enriched_at, created_at
+		       NULL::text AS ai_summary,
+		       ARRAY[]::text[] AS ai_highlights,
+		       ARRAY[]::text[] AS ai_required_skills,
+		       NULL::text AS ai_compensation,
+		       NULL::text AS ai_remote_policy,
+		       is_active, posted_date, NULL::timestamp AS ai_last_enriched_at, created_at
 		FROM jobs
 		WHERE id = $1
 	`
@@ -150,6 +159,10 @@ func (s *JobService) GetJobByID(id string) (*models.Job, error) {
 
 // CreateJob inserts a new job (called by scraper)
 func (s *JobService) CreateJob(job *models.Job) error {
+	if job.ID == "" {
+		job.ID = generateUUID()
+	}
+
 	// Check if job already exists (by source_url)
 	if job.SourceURL != nil && *job.SourceURL != "" {
 		exists, err := s.jobExists(*job.SourceURL)
@@ -167,17 +180,17 @@ func (s *JobService) CreateJob(job *models.Job) error {
 
 	query := `
 		INSERT INTO jobs (
-			title, company, location, remote_type, description,
+			id, title, company, location, remote_type, description,
 			requirements, salary_min, salary_max, job_type,
 			experience_level, source_url, validated_source_url, source_site,
 			raw_description, is_active, posted_date
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING id, created_at
 	`
 
 	err := s.db.QueryRow(
 		query,
-		job.Title, job.Company, job.Location, job.RemoteType,
+		job.ID, job.Title, job.Company, job.Location, job.RemoteType,
 		job.Description, job.Requirements, job.SalaryMin,
 		job.SalaryMax, job.JobType, job.ExperienceLevel,
 		job.SourceURL, job.ValidatedSourceURL, job.SourceSite,
@@ -197,4 +210,20 @@ func (s *JobService) jobExists(sourceURL string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM jobs WHERE source_url = $1)`
 	err := s.db.QueryRow(query, sourceURL).Scan(&exists)
 	return exists, err
+}
+
+// generateUUID creates a random UUIDv4 string without external dependencies.
+func generateUUID() string {
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf("%x-%x-%x-%x-%x",
+		b[0:4],
+		b[4:6],
+		b[6:8],
+		b[8:10],
+		b[10:16],
+	)
 }
