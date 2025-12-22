@@ -9,7 +9,13 @@ import time
 from pathlib import Path
 from app.core.config import settings
 from app.core.database import init_db
-from app.api.v1.endpoints import auth, resume, application, interview, job
+import app.models
+from app.api.v1.endpoints import auth
+from app.api.v1.endpoints import resume
+from app.api.v1.endpoints import application
+from app.api.v1.endpoints import interview
+from app.api.v1.endpoints import job
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

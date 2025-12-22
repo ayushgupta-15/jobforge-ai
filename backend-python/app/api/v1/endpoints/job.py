@@ -8,6 +8,7 @@ from app.models.user import User
 from app.api.deps import get_current_user
 from app.schemas.job import JobCreate, JobUpdate, JobResponse
 from app.crud import job as job_crud
+from app.services.job_enrichment import JobEnrichmentError
 
 router = APIRouter()
 
@@ -42,6 +43,27 @@ def get_job(
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
     return job
+
+@router.post("/{job_id}/enrich", response_model=JobResponse)
+def enrich_job(
+    job_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Trigger AI enrichment for a job posting."""
+    job = job_crud.get_job(db, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+
+    try:
+        enriched_job = job_crud.enrich_job_listing(db, job_id)
+    except JobEnrichmentError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    return enriched_job
 
 @router.post("/", response_model=JobResponse, status_code=status.HTTP_201_CREATED)
 def create_job(

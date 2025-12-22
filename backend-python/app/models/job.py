@@ -1,6 +1,6 @@
 """JobForge AI - Job Model"""
 from sqlalchemy import Column, String, DateTime, Float, Text, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.sql import func
 import uuid
 from app.core.database import Base
@@ -20,8 +20,17 @@ class Job(Base):
     job_type = Column(String(50), nullable=True)  # full-time, part-time, contract, etc
     experience_level = Column(String(50), nullable=True)  # entry, mid, senior, etc
     source_url = Column(String, nullable=True)
+    validated_source_url = Column(String, nullable=True)
+    source_site = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
     posted_date = Column(DateTime, nullable=True)
+    raw_description = Column(Text, nullable=True)
+    ai_summary = Column(Text, nullable=True)
+    ai_highlights = Column(ARRAY(String), nullable=True)
+    ai_required_skills = Column(ARRAY(String), nullable=True)
+    ai_compensation = Column(String(255), nullable=True)
+    ai_remote_policy = Column(String(255), nullable=True)
+    ai_last_enriched_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     
     def __repr__(self):
