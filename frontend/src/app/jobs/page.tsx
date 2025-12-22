@@ -16,15 +16,21 @@ import {
   Clock,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { jobsAPI, Job, JobSearchParams } from '@/lib/api/jobs';
 import { useToast } from '@/hooks/use-toast';
+import { aiService, resumeService, Resume } from '@/lib/api/services';
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isHealthy, setIsHealthy] = useState(true);
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [coverLetters, setCoverLetters] = useState<Record<string, string>>({});
+  const [coverLetterLoading, setCoverLetterLoading] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useState<JobSearchParams>({
     query: '',
     location: '',
@@ -97,6 +103,60 @@ export default function JobsPage() {
     const updatedParams = { ...searchParams, page: nextPage };
     setSearchParams(updatedParams);
     fetchJobs(updatedParams);
+  };
+
+  const loadResumes = async () => {
+    if (resumes.length > 0) return resumes;
+    try {
+      const data = await resumeService.getAll();
+      setResumes(data);
+      return data;
+    } catch (error) {
+      console.error('Failed to load resumes', error);
+      toast({
+        title: 'Login required',
+        description: 'Sign in to load your resumes before generating cover letters.',
+        variant: 'destructive',
+      });
+      return [];
+    }
+  };
+
+  const generateCoverLetter = async (job: Job) => {
+    const availableResumes = await loadResumes();
+    const targetResume = availableResumes.find((r) => r.is_primary) || availableResumes[0];
+    if (!targetResume) {
+      toast({
+        title: 'No resume found',
+        description: 'Upload a resume to your account to generate cover letters.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCoverLetterLoading(job.id);
+    try {
+      const result = await aiService.generateCoverLetter({
+        resume_id: targetResume.id,
+        job_id: job.id,
+        tone: 'professional',
+        length: 'medium',
+      });
+      setCoverLetters((prev) => ({ ...prev, [job.id]: result.letter }));
+      toast({
+        title: 'Cover letter ready',
+        description: 'Generated using your saved resume.',
+      });
+    } catch (error) {
+      console.error('Cover letter generation failed', error);
+      toast({
+        title: 'Cover letter failed',
+        description: 'Check that you are signed in to the AI backend and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCoverLetterLoading(null);
+    }
   };
 
   const formatSalary = (min?: number, max?: number) => {
@@ -342,7 +402,30 @@ export default function JobsPage() {
                           </a>
                         </Button>
                       )}
+                      <Button
+                        variant="secondary"
+                        onClick={() => generateCoverLetter(job)}
+                        disabled={!!coverLetterLoading}
+                      >
+                        {coverLetterLoading === job.id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <FileText className="mr-2 h-4 w-4" />
+                        )}
+                        Cover Letter
+                      </Button>
                     </div>
+                    {coverLetters[job.id] && (
+                      <div className="mt-4 border rounded-lg p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <div className="flex items-center gap-2 mb-2 text-slate-700 dark:text-slate-200">
+                          <Sparkles className="h-4 w-4" />
+                          <span className="text-sm font-semibold">Generated Cover Letter</span>
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">
+                          {coverLetters[job.id]}
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

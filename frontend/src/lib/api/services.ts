@@ -366,38 +366,33 @@ class AIService {
   async generateCoverLetter(data: {
     resume_id: string;
     job_id?: string;
-    company: string;
-    position: string;
-    tone?: 'formal' | 'casual' | 'enthusiastic';
-  }): Promise<{ content: string }> {
+    tone?: string;
+    length?: string;
+    custom_notes?: string;
+  }): Promise<{
+    letter: string;
+    model: string;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+  }> {
     const response = await apiClient.post('/api/v1/ai/cover-letter', data);
     return response.data;
   }
 
-  async optimizeResume(data: {
-    resume_id: string;
-    job_id?: string;
-  }): Promise<{
-    suggestions: string[];
-    optimized_sections: Record<string, string>;
-  }> {
-    const response = await apiClient.post('/api/v1/ai/optimize-resume', data);
-    return response.data;
-  }
-
   async generateInterviewQuestions(data: {
-    job_id?: string;
-    company: string;
-    position: string;
+    job_id: string;
     interview_type: 'technical' | 'behavioral' | 'system_design';
+    seniority?: string;
+    focus_areas?: string[];
   }): Promise<{
-    questions: Array<{
-      question: string;
-      suggested_answer?: string;
-      tips?: string[];
-    }>;
+    job_id: string;
+    interview_type: string;
+    questions: Array<{ question: string; guidance?: string | null }>;
+    model: string;
+    prompt_tokens?: number;
+    completion_tokens?: number;
   }> {
-    const response = await apiClient.post('/api/v1/ai/interview-questions', data);
+    const response = await apiClient.post('/api/v1/ai/interview/questions', data);
     return response.data;
   }
 

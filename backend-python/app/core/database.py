@@ -1,5 +1,5 @@
 """JobForge AI - Database Configuration"""
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
@@ -25,4 +25,22 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _ensure_job_ai_columns()
 
+
+def _ensure_job_ai_columns() -> None:
+    """Backfill missing AI-related columns on the jobs table for existing databases."""
+    ddl_statements = [
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS raw_description TEXT",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_summary TEXT",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_highlights TEXT[]",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_required_skills TEXT[]",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_compensation VARCHAR(255)",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_remote_policy VARCHAR(255)",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS ai_last_enriched_at TIMESTAMP",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS validated_source_url VARCHAR",
+        "ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_site VARCHAR(100)",
+    ]
+    with engine.begin() as conn:
+        for stmt in ddl_statements:
+            conn.execute(text(stmt))

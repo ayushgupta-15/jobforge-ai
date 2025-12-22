@@ -15,6 +15,7 @@ from app.api.v1.endpoints import resume
 from app.api.v1.endpoints import application
 from app.api.v1.endpoints import interview
 from app.api.v1.endpoints import job
+from app.api.v1.endpoints import ai
 
 
 @asynccontextmanager
@@ -85,6 +86,7 @@ app.include_router(resume.router, prefix="/api/v1/resumes", tags=["Resumes"])
 app.include_router(application.router, prefix="/api/v1/applications", tags=["Applications"])
 app.include_router(interview.router, prefix="/api/v1/interviews", tags=["Interviews"])
 app.include_router(job.router, prefix="/api/v1/jobs", tags=["Jobs"])
+app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 
 if __name__ == "__main__":
     import uvicorn
