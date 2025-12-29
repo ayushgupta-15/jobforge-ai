@@ -9,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Save, Bell, Lock, CreditCard, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Theme, useTheme } from '@/components/theme/theme-provider';
+import { Save, Bell, Lock, CreditCard, Trash2, Moon, Sun, Monitor } from 'lucide-react';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
     weeklyDigest: true,
@@ -163,6 +166,55 @@ export default function SettingsPage() {
 
             {/* Preferences Tab */}
             <TabsContent value="preferences" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Appearance</CardTitle>
+                  <CardDescription>Choose how JobForge AI looks on your device</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="theme">Theme</Label>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Use Auto to follow your system preference.
+                      </p>
+                    </div>
+                    <div className="w-full md:w-64">
+                      <Select value={theme} onValueChange={(value) => setTheme(value as Theme)}>
+                        <SelectTrigger id="theme">
+                          <SelectValue placeholder="Select theme" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">
+                            <div className="flex items-center gap-2">
+                              <Sun className="h-4 w-4" />
+                              <span>Light</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="dark">
+                            <div className="flex items-center gap-2">
+                              <Moon className="h-4 w-4" />
+                              <span>Dark</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="system">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="h-4 w-4" />
+                              <span>Auto (System)</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Current theme:{' '}
+                    <span className="font-medium capitalize">{resolvedTheme}</span>
+                    {theme === 'system' ? ' (following system)' : ''}
+                  </p>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Job Preferences</CardTitle>

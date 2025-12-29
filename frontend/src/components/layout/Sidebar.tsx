@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib/store/authStore';
 import { useRouter } from 'next/navigation';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -41,13 +42,16 @@ export default function Sidebar() {
     <div className="flex flex-col h-full bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700">
       {/* Logo */}
       <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+              JobForge AI
+            </h1>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-            JobForge AI
-          </h1>
+          <ThemeToggle />
         </div>
       </div>
 

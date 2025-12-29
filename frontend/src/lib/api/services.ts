@@ -121,7 +121,7 @@ class UserService {
 
 class ResumeService {
   async getAll(): Promise<Resume[]> {
-    const response = await apiClient.get<Resume[]>('/api/v1/resumes');
+    const response = await apiClient.get<Resume[]>('/api/v1/resumes/');
     return response.data;
   }
 
