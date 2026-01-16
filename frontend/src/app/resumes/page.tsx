@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Download, Eye, Trash2, Loader2 } from 'lucide-react';
 import ResumeUploadModal from '@/components/modals/ResumeUploadModal';
+import ResumeViewModal from '@/components/modals/ResumeViewModal';
 import { useResumeStore } from '@/lib/store/stores';
+import type { Resume } from '@/lib/api/services';
 
 export default function ResumesPage() {
   const { resumes, isLoading, fetchResumes, deleteResume, analyzeResume } = useResumeStore();
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
 
   useEffect(() => {
     fetchResumes();
@@ -25,13 +29,25 @@ export default function ResumesPage() {
     );
   }
 
+  const handleViewResume = (resume: Resume) => {
+    setSelectedResume(resume);
+    setIsViewOpen(true);
+  };
+
+  const handleCloseView = (open: boolean) => {
+    setIsViewOpen(open);
+    if (!open) {
+      setSelectedResume(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold">Resumes</h1>
+              <h1 className="text-4xl font-bold">Resumes</h1>
               <p className="text-slate-600">Manage and optimize your resumes</p>
             </div>
             <ResumeUploadModal onSuccess={fetchResumes} />
@@ -85,7 +101,7 @@ export default function ResumesPage() {
                       </div>
 
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => handleViewResume(resume)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View
                         </Button>
@@ -112,6 +128,13 @@ export default function ResumesPage() {
           )}
         </div>
       </div>
+      {selectedResume && (
+        <ResumeViewModal
+          resume={selectedResume}
+          open={isViewOpen}
+          onOpenChange={handleCloseView}
+        />
+      )}
     </DashboardLayout>
   );
 }

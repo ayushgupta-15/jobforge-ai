@@ -155,3 +155,40 @@ def generate_interview_questions(
         "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
         "completion_tokens": getattr(completion.usage, "completion_tokens", None),
     }
+
+
+def chat(*, message: str, context: Optional[dict] = None) -> dict:
+    """General chat endpoint for assistance."""
+    if not message.strip():
+        raise ValueError("Message is empty.")
+
+    client = _get_client()
+    context_text = ""
+    if context:
+        context_text = f"Context: {context}\n"
+    prompt = (
+        "You are JobForge AI, a helpful assistant for job seekers. "
+        "Provide concise, practical guidance.\n"
+        f"{context_text}"
+        f"User: {message}"
+    )
+    try:
+        completion = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a career assistant focused on resumes, applications, and interviews."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+    except Exception:
+        logger.exception("Chat generation failed")
+        raise
+
+    choice = completion.choices[0].message
+    return {
+        "response": (choice.content or "").strip(),
+        "model": completion.model or settings.OPENAI_MODEL,
+        "prompt_tokens": getattr(completion.usage, "prompt_tokens", None),
+        "completion_tokens": getattr(completion.usage, "completion_tokens", None),
+    }

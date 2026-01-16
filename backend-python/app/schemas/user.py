@@ -37,14 +37,21 @@ class UserBase(BaseModel):
     profile_picture_url: Optional[str] = None
     phone: Optional[str] = None
     location: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    profile_picture_url: Optional[str] = None
     phone: Optional[str] = None
     location: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
 
 class UserResponse(UserBase):
     id: UUID

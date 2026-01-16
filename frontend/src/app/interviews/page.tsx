@@ -49,7 +49,7 @@ export default function InterviewsPage() {
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold">Interviews</h1>
+            <h1 className="text-4xl font-bold">Interviews</h1>
             <p className="text-slate-600">Manage and track your interviews</p>
           </div>
 

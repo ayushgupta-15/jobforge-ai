@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,11 @@ import {
   TrendingUp 
 } from 'lucide-react';
 import { useResumeStore, useApplicationStore, useInterviewStore } from '@/lib/store/stores';
+import ResumeUploadModal from '@/components/modals/ResumeUploadModal';
+import AddApplicationModal from '@/components/modals/AddApplicationModal';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { resumes, fetchResumes } = useResumeStore();
   const { applications, stats, fetchApplications } = useApplicationStore();
   const { upcomingInterviews, fetchUpcomingInterviews } = useInterviewStore();
@@ -27,7 +31,7 @@ export default function DashboardPage() {
     <DashboardLayout>
       <div className="p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
+          <h1 className="text-4xl font-bold text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-slate-600 dark:text-slate-400">Welcome back! Here's your overview.</p>
         </div>
 
@@ -88,25 +92,42 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Button className="h-auto py-6 flex-col items-start" variant="outline">
-                <FileText className="h-5 w-5 mb-2" />
-                <span className="font-semibold">Upload Resume</span>
-                <span className="text-xs text-muted-foreground">Get AI-powered analysis</span>
-              </Button>
+              <ResumeUploadModal
+                onSuccess={fetchResumes}
+                trigger={
+                  <Button className="h-auto py-6 flex-col items-start" variant="outline">
+                    <FileText className="h-5 w-5 mb-2" />
+                    <span className="font-semibold">Upload Resume</span>
+                    <span className="text-xs text-muted-foreground">Get AI-powered analysis</span>
+                  </Button>
+                }
+              />
 
-              <Button className="h-auto py-6 flex-col items-start" variant="outline">
-                <Briefcase className="h-5 w-5 mb-2" />
-                <span className="font-semibold">Track Application</span>
-                <span className="text-xs text-muted-foreground">Add a new job application</span>
-              </Button>
+              <AddApplicationModal
+                trigger={
+                  <Button className="h-auto py-6 flex-col items-start" variant="outline">
+                    <Briefcase className="h-5 w-5 mb-2" />
+                    <span className="font-semibold">Track Application</span>
+                    <span className="text-xs text-muted-foreground">Add a new job application</span>
+                  </Button>
+                }
+              />
 
-              <Button className="h-auto py-6 flex-col items-start" variant="outline">
+              <Button
+                className="h-auto py-6 flex-col items-start"
+                variant="outline"
+                onClick={() => router.push('/interviews')}
+              >
                 <Calendar className="h-5 w-5 mb-2" />
                 <span className="font-semibold">Schedule Interview</span>
                 <span className="text-xs text-muted-foreground">Prepare for interview</span>
               </Button>
 
-              <Button className="h-auto py-6 flex-col items-start" variant="outline">
+              <Button
+                className="h-auto py-6 flex-col items-start"
+                variant="outline"
+                onClick={() => router.push('/analytics')}
+              >
                 <TrendingUp className="h-5 w-5 mb-2" />
                 <span className="font-semibold">View Analytics</span>
                 <span className="text-xs text-muted-foreground">Track your progress</span>

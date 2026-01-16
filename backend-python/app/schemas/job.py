@@ -59,3 +59,6 @@ class JobResponse(JobBase):
 
     class Config:
         from_attributes = True
+
+class JobMatchResponse(JobResponse):
+    match_score: float

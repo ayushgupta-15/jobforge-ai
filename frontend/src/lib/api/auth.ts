@@ -18,6 +18,9 @@ export interface User {
   profile_picture_url?: string;
   phone?: string;
   location?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
   email_verified: boolean;
   is_active: boolean;
   subscription_tier: string;

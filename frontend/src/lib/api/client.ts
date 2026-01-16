@@ -127,4 +127,17 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+export const resolveAssetUrl = (path?: string | null) => {
+  if (!path) {
+    return '';
+  }
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  if (path.startsWith('/')) {
+    return `${API_URL}${path}`;
+  }
+  return `${API_URL}/${path}`;
+};
+
 export { API_URL };

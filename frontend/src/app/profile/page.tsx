@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuthStore } from '@/lib/store/authStore';
+import { userService } from '@/lib/api/services';
+import { resolveAssetUrl } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   User, 
@@ -23,10 +24,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [profileData, setProfileData] = useState({
     full_name: '',
     email: '',
@@ -36,6 +39,18 @@ export default function ProfilePage() {
     github_url: '',
     portfolio_url: '',
   });
+  const completionFields = [
+    profileData.full_name,
+    profileData.phone,
+    profileData.location,
+    profileData.linkedin_url,
+    profileData.github_url,
+    profileData.portfolio_url,
+  ];
+  const completionTotal = completionFields.length;
+  const completionFilled = completionFields.filter((field) => field && field.trim()).length;
+  const completionPercent =
+    completionTotal > 0 ? Math.round((completionFilled / completionTotal) * 100) : 0;
 
   useEffect(() => {
     if (user) {
@@ -61,8 +76,15 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: Implement API call to update profile
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      const updatedUser = await userService.updateProfile({
+        full_name: profileData.full_name,
+        phone: profileData.phone || null,
+        location: profileData.location || null,
+        linkedin_url: profileData.linkedin_url || null,
+        github_url: profileData.github_url || null,
+        portfolio_url: profileData.portfolio_url || null,
+      });
+      setUser(updatedUser);
 
       toast({
         title: 'Profile updated',
@@ -96,45 +118,148 @@ export default function ProfilePage() {
     setIsEditing(false);
   };
 
+  const handleProfilePictureClick = () => {
+    if (isUploadingPhoto) {
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleProfilePictureChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) {
+      return;
+    }
+    setIsUploadingPhoto(true);
+    try {
+      const result = await userService.uploadProfilePicture(file);
+      setUser({ ...user, profile_picture_url: result.url });
+      toast({
+        title: 'Photo updated',
+        description: 'Your profile picture has been updated.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: 'Unable to update profile picture.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="p-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Profile</h1>
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-white">Profile</h1>
             <p className="text-slate-600 dark:text-slate-400">
               Manage your personal information and professional links
             </p>
           </div>
 
-          {/* Profile Picture Section */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Profile Picture</CardTitle>
-              <CardDescription>Update your profile photo</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                    {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+          {/* Profile Overview */}
+          <Card className="mb-6 overflow-hidden border-slate-200/80 dark:border-slate-700">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900 opacity-90" />
+              <div className="relative p-6 text-white">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-2xl overflow-hidden bg-white/15 flex items-center justify-center text-2xl font-semibold">
+                        {user?.profile_picture_url ? (
+                          <img
+                            src={resolveAssetUrl(user.profile_picture_url)}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          user?.full_name?.charAt(0).toUpperCase() || 'U'
+                        )}
+                      </div>
+                      <button
+                        className="absolute -bottom-2 -right-2 w-8 h-8 bg-white text-blue-700 hover:text-blue-800 rounded-full flex items-center justify-center shadow-lg transition-colors"
+                        onClick={handleProfilePictureClick}
+                        type="button"
+                        disabled={isUploadingPhoto}
+                      >
+                        {isUploadingPhoto ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfilePictureChange}
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-semibold">{user?.full_name}</h3>
+                      <p className="text-sm text-blue-100">{user?.email}</p>
+                      <p className="text-xs text-blue-100/80 mt-1">
+                        Member since{' '}
+                        {user?.created_at
+                          ? new Date(user.created_at).toLocaleDateString('en-US', {
+                              month: 'long',
+                              year: 'numeric',
+                            })
+                          : 'N/A'}
+                      </p>
+                    </div>
                   </div>
-                  <button className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg transition-colors">
-                    <Camera className="h-4 w-4" />
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="rounded-xl bg-white/10 px-4 py-2">
+                      <p className="text-xs uppercase tracking-wide text-blue-100/70">Profile completeness</p>
+                      <p className="text-lg font-semibold">{completionPercent}%</p>
+                      <p className="text-xs text-blue-100/70">{completionFilled}/{completionTotal} fields</p>
+                    </div>
+                    {!isEditing && (
+                      <Button onClick={() => setIsEditing(true)} className="bg-white text-blue-700 hover:bg-blue-50">
+                        Edit Profile
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg text-slate-900 dark:text-white">
-                    {user?.full_name}
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {user?.email}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                    Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
-                  </p>
+              </div>
+            </div>
+            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-white dark:bg-slate-900">
+              <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {user?.subscription_tier?.toUpperCase() || 'FREE'}
                 </div>
+                <div className="text-xs text-slate-500 mt-1">Subscription</div>
+              </div>
+              <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {user?.email_verified ? 'Verified' : 'Unverified'}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">Email Status</div>
+              </div>
+              <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {user?.is_active ? 'Active' : 'Inactive'}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">Account</div>
+              </div>
+              <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <div className="text-lg font-semibold text-slate-900 dark:text-white">
+                  {user?.last_login_at
+                    ? new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    : 'N/A'}
+                </div>
+                <div className="text-xs text-slate-500 mt-1">Last Login</div>
               </div>
             </CardContent>
           </Card>
@@ -146,10 +271,8 @@ export default function ProfilePage() {
                 <CardTitle>Personal Information</CardTitle>
                 <CardDescription>Your basic profile details</CardDescription>
               </div>
-              {!isEditing && (
-                <Button onClick={() => setIsEditing(true)}>
-                  Edit Profile
-                </Button>
+              {isEditing && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Editing</p>
               )}
             </CardHeader>
             <CardContent className="space-y-4">
@@ -273,56 +396,6 @@ export default function ProfilePage() {
                   disabled={!isEditing}
                   placeholder="https://johndoe.com"
                 />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Account Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Statistics</CardTitle>
-              <CardDescription>Your JobForge AI activity</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {user?.subscription_tier?.toUpperCase() || 'FREE'}
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Subscription
-                  </div>
-                </div>
-
-                <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {user?.email_verified ? '✓' : '✗'}
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Email Verified
-                  </div>
-                </div>
-
-                <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                    {user?.is_active ? 'Active' : 'Inactive'}
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Status
-                  </div>
-                </div>
-
-                <div className="text-center p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {user?.last_login_at 
-                      ? new Date(user.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      : 'N/A'
-                    }
-                  </div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Last Login
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>

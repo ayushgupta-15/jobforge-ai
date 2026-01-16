@@ -7,7 +7,7 @@ import logging
 from typing import List, Optional
 
 import httpx
-from openai import OpenAI
+from openai import OpenAI, AuthenticationError
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.config import settings
@@ -82,7 +82,6 @@ def _build_prompt(*, resume_text: str, job_title: Optional[str], job_description
     parts.append(f"\nResume Text:\n{resume_text}")
     return "".join(parts)
 
-
 def analyze_resume_text(
     *,
     resume_text: str,
@@ -93,6 +92,9 @@ def analyze_resume_text(
     """Call OpenAI to analyze a resume and return structured data."""
     if not resume_text or not resume_text.strip():
         raise ResumeAnalysisError("Resume text is empty; cannot analyze.")
+
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY.strip() == "sk-test":
+        raise ResumeAnalysisError("AI analysis is not configured. Please add a valid API key.")
 
     prompt = _build_prompt(
         resume_text=resume_text,
@@ -112,6 +114,9 @@ def analyze_resume_text(
             temperature=0.2,
             response_format={"type": "json_object"},
         )
+    except AuthenticationError as exc:
+        logger.exception("OpenAI authentication failed.")
+        raise ResumeAnalysisError("AI authentication failed. Please check your API key.") from exc
     except Exception as exc:
         logger.exception("OpenAI chat completion failed")
         raise ResumeAnalysisError("AI analysis failed. Please try again later.") from exc

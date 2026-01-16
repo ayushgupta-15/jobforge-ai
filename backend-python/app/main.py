@@ -16,6 +16,8 @@ from app.api.v1.endpoints import application
 from app.api.v1.endpoints import interview
 from app.api.v1.endpoints import job
 from app.api.v1.endpoints import ai
+from app.api.v1.endpoints import users
+from app.api.v1.endpoints import analytics
 
 
 @asynccontextmanager
@@ -87,6 +89,8 @@ app.include_router(application.router, prefix="/api/v1/applications", tags=["App
 app.include_router(interview.router, prefix="/api/v1/interviews", tags=["Interviews"])
 app.include_router(job.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
 
 if __name__ == "__main__":
     import uvicorn

@@ -14,6 +14,8 @@ from app.schemas.ai import (
     InterviewQuestionsRequest,
     InterviewQuestionsResponse,
     InterviewQuestion,
+    ChatRequest,
+    ChatResponse,
 )
 from app.services import ai_content
 
@@ -109,3 +111,18 @@ async def generate_interview_questions(
         prompt_tokens=result.get("prompt_tokens"),
         completion_tokens=result.get("completion_tokens"),
     )
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    data: ChatRequest,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        result = ai_content.chat(message=data.message, context=data.context)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Chat generation failed. Please try again.",
+        )
+    return ChatResponse(response=result["response"])

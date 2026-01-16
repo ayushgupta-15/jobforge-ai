@@ -45,3 +45,12 @@ class InterviewQuestionsResponse(BaseModel):
     model: str
     prompt_tokens: Optional[int] = None
     completion_tokens: Optional[int] = None
+
+
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[dict] = None
+
+
+class ChatResponse(BaseModel):
+    response: str

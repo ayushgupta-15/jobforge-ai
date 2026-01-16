@@ -194,7 +194,7 @@ export default function JobsPage() {
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+            <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
               Job Search
             </h1>
             <p className="text-slate-600 dark:text-slate-400">

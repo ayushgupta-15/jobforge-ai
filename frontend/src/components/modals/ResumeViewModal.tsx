@@ -70,7 +70,7 @@ export default function ResumeViewModal({ resume, open, onOpenChange }: ResumeVi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] min-h-0 overflow-hidden flex flex-col">
         <DialogHeader>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
@@ -96,7 +96,7 @@ export default function ResumeViewModal({ resume, open, onOpenChange }: ResumeVi
           </div>
         </DialogHeader>
 
-        <Tabs defaultValue="overview" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="overview" className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <TabsList className="w-full justify-start">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
@@ -104,7 +104,7 @@ export default function ResumeViewModal({ resume, open, onOpenChange }: ResumeVi
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="flex-1 overflow-y-auto space-y-4 mt-4">
+          <TabsContent value="overview" className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden space-y-4 mt-4">
             {/* Scores Section */}
             <div className="grid grid-cols-2 gap-4">
               {resume.ats_score !== null && (
@@ -236,7 +236,7 @@ export default function ResumeViewModal({ resume, open, onOpenChange }: ResumeVi
           </TabsContent>
 
           {/* Analysis Tab */}
-          <TabsContent value="analysis" className="flex-1 overflow-y-auto space-y-4 mt-4">
+          <TabsContent value="analysis" className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden space-y-4 mt-4">
             {resume.suggestions && resume.suggestions.length > 0 ? (
               <Card>
                 <CardHeader>
@@ -320,7 +320,7 @@ export default function ResumeViewModal({ resume, open, onOpenChange }: ResumeVi
 
           {/* Content Tab */}
           {resume.raw_text && (
-            <TabsContent value="content" className="flex-1 overflow-y-auto mt-4">
+            <TabsContent value="content" className="flex-1 min-h-0 overflow-y-auto scrollbar-hidden mt-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Extracted Text</CardTitle>

@@ -57,7 +57,7 @@ export default function ApplicationsPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold">Applications</h1>
+              <h1 className="text-4xl font-bold">Applications</h1>
               <p className="text-slate-600">Track your job applications</p>
             </div>
             <AddApplicationModal onSuccess={fetchApplications} />

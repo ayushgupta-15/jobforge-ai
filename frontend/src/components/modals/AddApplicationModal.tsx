@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Loader2 } from 'lucide-react';
+import { applicationService } from '@/lib/api/services';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddApplicationModalProps {
   trigger?: React.ReactNode;
@@ -31,6 +33,7 @@ interface AddApplicationModalProps {
 export default function AddApplicationModal({ trigger, onSuccess }: AddApplicationModalProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     company: '',
     position: '',
@@ -44,11 +47,19 @@ export default function AddApplicationModal({ trigger, onSuccess }: AddApplicati
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // TODO: Implement actual API call
-      console.log('Submitting:', formData);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const metaNotes = [
+        formData.location ? `Location: ${formData.location}` : null,
+        formData.salary ? `Salary: ${formData.salary}` : null,
+      ].filter(Boolean);
+      const notes = [metaNotes.join('\n'), formData.notes].filter(Boolean).join('\n\n') || undefined;
+
+      await applicationService.create({
+        company_name: formData.company.trim(),
+        job_title: formData.position.trim(),
+        job_url: formData.jobUrl?.trim() || undefined,
+        status: formData.status as any,
+        notes,
+      });
       
       setOpen(false);
       setFormData({
@@ -60,9 +71,18 @@ export default function AddApplicationModal({ trigger, onSuccess }: AddApplicati
         status: 'applied',
         notes: '',
       });
+      toast({
+        title: 'Application added',
+        description: 'Your application has been saved.',
+      });
       onSuccess?.();
     } catch (error) {
       console.error('Submit failed:', error);
+      toast({
+        title: 'Unable to add application',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
