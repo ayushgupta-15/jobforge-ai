@@ -1,6 +1,7 @@
 """JobForge AI - Configuration Module"""
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from pydantic import field_validator
+from typing import List, Optional, Union
 from functools import lru_cache
 
 
@@ -34,9 +35,16 @@ class Settings(BaseSettings):
     # Optional future integrations
     ANTHROPIC_API_KEY: Optional[str] = None
 
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: Union[str, List[str]] = ["http://localhost:3000"]
     UPLOAD_DIR: str = "uploads"
     RESUME_UPLOAD_SUBDIR: str = "resumes"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value):
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
     class Config:
         env_file = ".env"
