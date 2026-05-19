@@ -13,12 +13,12 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  profile_picture_url?: string;
-  phone?: string;
-  location?: string;
-  linkedin_url?: string;
-  github_url?: string;
-  portfolio_url?: string;
+  profile_picture_url?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
   email_verified: boolean;
   is_active: boolean;
   subscription_tier: string;
@@ -75,6 +75,35 @@ export interface Job {
   is_active: boolean;
   posted_date?: string;
   created_at: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  category?: string;
+  subject: string;
+  body: string;
+  is_default: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface EmailSchedule {
+  id: string;
+  user_id: string;
+  application_id?: string;
+  template_id?: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  send_at: string;
+  status: 'pending' | 'sent' | 'failed' | 'canceled';
+  last_error?: string;
+  sent_at?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 // ============================================
@@ -328,32 +357,91 @@ class JobService {
 // Analytics Service
 // ============================================
 
+export interface AnalyticsOverview {
+  total_applications: number;
+  response_rate: number;
+  interview_rate: number;
+  avg_response_time_days: number;
+  applications_by_status: Record<string, number>;
+  applications_by_month: Array<{ month: string; count: number }>;
+}
+
+export interface AnalyticsInsight {
+  type: 'strength' | 'tip' | 'opportunity';
+  message: string;
+}
+
+export interface TopCompany {
+  company: string;
+  application_count: number;
+}
+
 class AnalyticsService {
-  async getOverview(): Promise<{
-    total_applications: number;
-    response_rate: number;
-    interview_rate: number;
-    avg_response_time_days: number;
-    applications_by_status: Record<string, number>;
-    applications_by_month: Array<{ month: string; count: number }>;
-  }> {
-    const response = await apiClient.get('/api/v1/analytics/overview');
+  async getOverview(): Promise<AnalyticsOverview> {
+    const response = await apiClient.get<AnalyticsOverview>('/api/v1/analytics/overview');
     return response.data;
   }
 
-  async getInsights(): Promise<Array<{
-    type: 'strength' | 'tip' | 'opportunity';
-    message: string;
-  }>> {
-    const response = await apiClient.get('/api/v1/analytics/insights');
+  async getInsights(): Promise<AnalyticsInsight[]> {
+    const response = await apiClient.get<AnalyticsInsight[]>('/api/v1/analytics/insights');
     return response.data;
   }
 
-  async getTopCompanies(): Promise<Array<{
-    company: string;
-    application_count: number;
-  }>> {
-    const response = await apiClient.get('/api/v1/analytics/top-companies');
+  async getTopCompanies(): Promise<TopCompany[]> {
+    const response = await apiClient.get<TopCompany[]>('/api/v1/analytics/top-companies');
+    return response.data;
+  }
+}
+
+// ============================================
+// Email Automation Service
+// ============================================
+
+class EmailService {
+  async getTemplates(): Promise<EmailTemplate[]> {
+    const response = await apiClient.get<EmailTemplate[]>('/api/v1/email/templates');
+    return response.data;
+  }
+
+  async createTemplate(data: Partial<EmailTemplate>): Promise<EmailTemplate> {
+    const response = await apiClient.post<EmailTemplate>('/api/v1/email/templates', data);
+    return response.data;
+  }
+
+  async updateTemplate(id: string, data: Partial<EmailTemplate>): Promise<EmailTemplate> {
+    const response = await apiClient.put<EmailTemplate>(`/api/v1/email/templates/${id}`, data);
+    return response.data;
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    await apiClient.delete(`/api/v1/email/templates/${id}`);
+  }
+
+  async getSchedules(): Promise<EmailSchedule[]> {
+    const response = await apiClient.get<EmailSchedule[]>('/api/v1/email/schedules');
+    return response.data;
+  }
+
+  async updateSchedule(id: string, data: Partial<EmailSchedule>): Promise<EmailSchedule> {
+    const response = await apiClient.patch<EmailSchedule>(`/api/v1/email/schedules/${id}`, data);
+    return response.data;
+  }
+
+  async cancelSchedule(id: string): Promise<EmailSchedule> {
+    const response = await apiClient.post<EmailSchedule>(`/api/v1/email/schedules/${id}/cancel`);
+    return response.data;
+  }
+
+  async sendEmail(data: {
+    to_email: string;
+    subject?: string;
+    body?: string;
+    template_id?: string;
+    application_id?: string;
+    variables?: Record<string, any>;
+    send_at?: string;
+  }): Promise<{ schedule_id: string; status: string; sent_at?: string }> {
+    const response = await apiClient.post('/api/v1/email/send', data);
     return response.data;
   }
 }
@@ -413,6 +501,7 @@ export const interviewService = new InterviewService();
 export const jobService = new JobService();
 export const analyticsService = new AnalyticsService();
 export const aiService = new AIService();
+export const emailService = new EmailService();
 
 // Export all services as default
 export default {
@@ -423,4 +512,5 @@ export default {
   job: jobService,
   analytics: analyticsService,
   ai: aiService,
+  email: emailService,
 };

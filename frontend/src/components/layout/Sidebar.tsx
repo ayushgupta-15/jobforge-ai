@@ -9,6 +9,7 @@ import {
   Search,
   Calendar,
   TrendingUp,
+  Mail,
   Settings,
   LogOut,
   User,
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Applications', href: '/applications', icon: Briefcase },
   { name: 'Job Search', href: '/jobs', icon: Search },
   { name: 'Interviews', href: '/interviews', icon: Calendar },
+  { name: 'Email', href: '/emails', icon: Mail },
   { name: 'Analytics', href: '/analytics', icon: TrendingUp },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
