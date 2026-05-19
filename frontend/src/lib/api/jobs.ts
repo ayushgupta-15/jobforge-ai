@@ -1,8 +1,11 @@
 /**
- * Jobs API Client - Calls Go Backend
+ * Jobs API Client
  */
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080';
+const JOBS_API_URL =
+  process.env.NEXT_PUBLIC_GO_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
 
 export interface Job {
   id: string;
@@ -61,7 +64,7 @@ class JobsAPIClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = GO_API_URL;
+    this.baseURL = JOBS_API_URL;
   }
 
   /**
@@ -69,17 +72,18 @@ class JobsAPIClient {
    */
   async searchJobs(params: JobSearchParams): Promise<JobSearchResponse> {
     const queryParams = new URLSearchParams();
-    
-    if (params.query) queryParams.append('query', params.query);
-    if (params.location) queryParams.append('location', params.location);
-    if (params.remote !== undefined) queryParams.append('remote', params.remote.toString());
-    if (params.job_type) queryParams.append('job_type', params.job_type);
-    if (params.min_salary) queryParams.append('min_salary', params.min_salary.toString());
-    if (params.max_salary) queryParams.append('max_salary', params.max_salary.toString());
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
 
-    const url = `${this.baseURL}/api/v1/jobs/search?${queryParams.toString()}`;
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const skip = (page - 1) * limit;
+    const searchTerm = [params.query, params.location].filter(Boolean).join(' ').trim();
+
+    queryParams.append('skip', skip.toString());
+    queryParams.append('limit', limit.toString());
+
+    const url = searchTerm
+      ? `${this.baseURL}/api/v1/jobs/search?${queryParams.toString()}&q=${encodeURIComponent(searchTerm)}`
+      : `${this.baseURL}/api/v1/jobs?${queryParams.toString()}`;
     
     try {
       const response = await fetch(url);
@@ -88,7 +92,25 @@ class JobsAPIClient {
         throw new Error(`Search failed: ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      const jobs = Array.isArray(data) ? data : data.jobs || [];
+      const filteredJobs = params.remote
+        ? jobs.filter((job: Job) => {
+            const remoteText = [
+              job.remote_type,
+              job.ai_remote_policy,
+              job.location,
+            ].filter(Boolean).join(' ').toLowerCase();
+            return remoteText.includes('remote');
+          })
+        : jobs;
+
+      return {
+        jobs: filteredJobs,
+        count: Array.isArray(data) ? filteredJobs.length : data.count || filteredJobs.length,
+        page: Array.isArray(data) ? page : data.page || page,
+        limit: Array.isArray(data) ? limit : data.limit || limit,
+      };
     } catch (error) {
       console.error('Job search error:', error);
       throw error;
