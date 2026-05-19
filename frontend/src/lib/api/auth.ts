@@ -15,12 +15,12 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
-  profile_picture_url?: string;
-  phone?: string;
-  location?: string;
-  linkedin_url?: string;
-  github_url?: string;
-  portfolio_url?: string;
+  profile_picture_url?: string | null;
+  phone?: string | null;
+  location?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  portfolio_url?: string | null;
   email_verified: boolean;
   is_active: boolean;
   subscription_tier: string;

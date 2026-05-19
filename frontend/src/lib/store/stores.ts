@@ -9,11 +9,17 @@ import {
   Application, 
   Job,
   Interview,
+  EmailTemplate,
+  EmailSchedule,
+  AnalyticsOverview,
+  AnalyticsInsight,
+  TopCompany,
   resumeService,
   applicationService,
   interviewService,
   jobService,
-  analyticsService
+  analyticsService,
+  emailService
 } from '@/lib/api/services';
 
 // ============================================
@@ -540,9 +546,9 @@ export const useJobStore = create<JobState>((set, get) => ({
 // ============================================
 
 interface AnalyticsState {
-  overview: any;
-  insights: any[];
-  topCompanies: any[];
+  overview: AnalyticsOverview | null;
+  insights: AnalyticsInsight[];
+  topCompanies: TopCompany[];
   isLoading: boolean;
   error: string | null;
   
@@ -587,6 +593,150 @@ export const useAnalyticsStore = create<AnalyticsState>((set) => ({
       set({ topCompanies });
     } catch (error: any) {
       console.error('Failed to fetch top companies:', error);
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));
+
+// ============================================
+// Email Automation Store
+// ============================================
+
+interface EmailState {
+  templates: EmailTemplate[];
+  schedules: EmailSchedule[];
+  isLoading: boolean;
+  error: string | null;
+
+  fetchTemplates: () => Promise<void>;
+  createTemplate: (data: Partial<EmailTemplate>) => Promise<EmailTemplate>;
+  updateTemplate: (id: string, data: Partial<EmailTemplate>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  fetchSchedules: () => Promise<void>;
+  cancelSchedule: (id: string) => Promise<void>;
+  sendEmail: (data: {
+    to_email: string;
+    subject?: string;
+    body?: string;
+    template_id?: string;
+    application_id?: string;
+    variables?: Record<string, any>;
+    send_at?: string;
+  }) => Promise<void>;
+  clearError: () => void;
+}
+
+export const useEmailStore = create<EmailState>((set, get) => ({
+  templates: [],
+  schedules: [],
+  isLoading: false,
+  error: null,
+
+  fetchTemplates: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const templates = await emailService.getTemplates();
+      set({ templates, isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to fetch templates',
+        isLoading: false,
+      });
+    }
+  },
+
+  createTemplate: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const template = await emailService.createTemplate(data);
+      set(state => ({
+        templates: [template, ...state.templates],
+        isLoading: false,
+      }));
+      return template;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to create template',
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  updateTemplate: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await emailService.updateTemplate(id, data);
+      set(state => ({
+        templates: state.templates.map(t => (t.id === id ? updated : t)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to update template',
+        isLoading: false,
+      });
+    }
+  },
+
+  deleteTemplate: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await emailService.deleteTemplate(id);
+      set(state => ({
+        templates: state.templates.filter(t => t.id !== id),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to delete template',
+        isLoading: false,
+      });
+    }
+  },
+
+  fetchSchedules: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const schedules = await emailService.getSchedules();
+      set({ schedules, isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to fetch schedules',
+        isLoading: false,
+      });
+    }
+  },
+
+  cancelSchedule: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await emailService.cancelSchedule(id);
+      set(state => ({
+        schedules: state.schedules.map(s => (s.id === id ? updated : s)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to cancel schedule',
+        isLoading: false,
+      });
+    }
+  },
+
+  sendEmail: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      await emailService.sendEmail(data);
+      await get().fetchSchedules();
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.detail || 'Failed to send email',
+        isLoading: false,
+      });
+      throw error;
     }
   },
 
