@@ -1,4 +1,5 @@
 """JobForge AI - Job CRUD Operations"""
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -6,12 +7,20 @@ from uuid import UUID
 from app.models.job import Job
 from app.schemas.job import JobCreate, JobUpdate
 from app.services.job_enrichment import enrich_job_posting
+from app.services import vector_store
+from app.services.embeddings import EmbeddingError, generate_embedding
+from app.services.job_matching import job_text_for_matching
+
+logger = logging.getLogger(__name__)
 
 def get_job(db: Session, job_id: UUID) -> Optional[Job]:
     return db.query(Job).filter(Job.id == job_id).first()
 
 def get_jobs(db: Session, skip: int = 0, limit: int = 100) -> List[Job]:
     return db.query(Job).filter(Job.is_active == True).offset(skip).limit(limit).all()
+
+def count_active_jobs(db: Session) -> int:
+    return db.query(Job).filter(Job.is_active == True).count()
 
 def search_jobs(db: Session, query: str, skip: int = 0, limit: int = 100) -> List[Job]:
     """Search jobs by title, company, or location"""
@@ -50,6 +59,18 @@ def create_job(db: Session, job: JobCreate) -> Job:
     db.add(db_job)
     db.commit()
     db.refresh(db_job)
+
+    # Best-effort: most jobs actually enter via the Go scraper's direct SQL
+    # insert (see app.services.job_embedding_backfill), but embed immediately
+    # here too for jobs created through this API. Never fails job creation.
+    try:
+        embedding = generate_embedding(job_text_for_matching(db_job))
+        vector_store.upsert_job_embedding(db_job.id, embedding)
+    except EmbeddingError:
+        logger.warning("Embedding provider unavailable for new job %s; backfill will retry later", db_job.id)
+    except Exception:
+        logger.warning("Failed to embed new job %s; backfill will retry later", db_job.id, exc_info=True)
+
     return db_job
 
 def update_job(db: Session, job_id: UUID, job_update: JobUpdate) -> Optional[Job]:

@@ -11,19 +11,16 @@ from app.crud import job as job_crud
 from app.crud import job_bookmark as bookmark_crud
 from app.crud import resume as resume_crud
 from app.services.job_enrichment import JobEnrichmentError
-import re
+from app.services.job_matching import score_jobs_for_resume
+from app.services import cache as cache_service
 
 router = APIRouter()
 
+# Job listings change on the scraper's own schedule (hours), not per-request,
+# so a short cache meaningfully cuts DB load without serving stale results
+# for long.
+_JOB_LIST_CACHE_TTL_SECONDS = 60
 
-def _score_match(resume_text: str, job_text: str) -> float:
-    resume_words = set(re.findall(r"[A-Za-z0-9+#]+", resume_text.lower()))
-    job_words = set(re.findall(r"[A-Za-z0-9+#]+", job_text.lower()))
-    if not resume_words or not job_words:
-        return 0.0
-    overlap = len(resume_words.intersection(job_words))
-    score = (overlap / max(len(job_words), 1)) * 100.0
-    return round(score, 1)
 
 @router.get("/", response_model=List[JobResponse])
 def list_jobs(
@@ -32,8 +29,15 @@ def list_jobs(
     db: Session = Depends(get_db)
 ):
     """Get all active jobs"""
+    cache_key = f"jobs:list:{skip}:{limit}"
+    cached = cache_service.get_json(cache_key)
+    if cached is not None:
+        return cached
+
     jobs = job_crud.get_jobs(db, skip=skip, limit=limit)
-    return jobs
+    result = [JobResponse.model_validate(job).model_dump(mode="json") for job in jobs]
+    cache_service.set_json(cache_key, result, _JOB_LIST_CACHE_TTL_SECONDS)
+    return result
 
 
 @router.get("/matches", response_model=List[JobMatchResponse])
@@ -44,7 +48,8 @@ def get_matches(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return jobs with a naive match score based on resume text."""
+    """Return jobs ranked by semantic similarity to the given resume (falls back
+    to keyword overlap per-job if Qdrant/the embedding provider is unavailable)."""
     resume_text = ""
     if resume_id:
         resume = resume_crud.get_resume(db, resume_id)
@@ -58,11 +63,11 @@ def get_matches(
         resume_text = resume.raw_text
 
     jobs = job_crud.get_jobs(db, skip=skip, limit=limit)
-    results: List[JobMatchResponse] = []
-    for job in jobs:
-        job_text = " ".join(filter(None, [job.title, job.company, job.location, job.description, job.requirements]))
-        match_score = _score_match(resume_text, job_text) if resume_text else 0.0
-        results.append(JobMatchResponse.model_validate({**JobResponse.model_validate(job).model_dump(), "match_score": match_score}))
+    scores = score_jobs_for_resume(resume_text, jobs)
+    results = [
+        JobMatchResponse.model_validate({**JobResponse.model_validate(job).model_dump(), "match_score": scores[job.id]})
+        for job in jobs
+    ]
     return results
 
 
@@ -82,8 +87,15 @@ def search_jobs(
     db: Session = Depends(get_db)
 ):
     """Search jobs by title, company, or location"""
+    cache_key = f"jobs:search:{q}:{skip}:{limit}"
+    cached = cache_service.get_json(cache_key)
+    if cached is not None:
+        return cached
+
     jobs = job_crud.search_jobs(db, q, skip=skip, limit=limit)
-    return jobs
+    result = [JobResponse.model_validate(job).model_dump(mode="json") for job in jobs]
+    cache_service.set_json(cache_key, result, _JOB_LIST_CACHE_TTL_SECONDS)
+    return result
 
 @router.get("/{job_id}", response_model=JobResponse)
 def get_job(

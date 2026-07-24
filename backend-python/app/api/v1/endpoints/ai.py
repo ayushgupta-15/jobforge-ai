@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.crud import resume as resume_crud
 from app.crud import job as job_crud
@@ -18,8 +19,20 @@ from app.schemas.ai import (
     ChatResponse,
 )
 from app.services import ai_content
+from app.services.rate_limit import RateLimitExceeded, check_and_increment
 
 router = APIRouter()
+
+
+def _enforce_ai_rate_limit(current_user: User, action: str) -> None:
+    try:
+        check_and_increment(str(current_user.id), action, limit=settings.AI_RATE_LIMIT_PER_HOUR)
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit exceeded ({settings.AI_RATE_LIMIT_PER_HOUR}/hour). Try again in {exc.retry_after_seconds}s.",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
 
 
 @router.post("/cover-letter", response_model=CoverLetterResponse)
@@ -80,6 +93,8 @@ async def generate_interview_questions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _enforce_ai_rate_limit(current_user, "ai_interview_questions")
+
     # Auth only; no ownership on job needed.
     job = job_crud.get_job(db, data.job_id)
     if not job:
@@ -118,6 +133,8 @@ async def chat(
     data: ChatRequest,
     current_user: User = Depends(get_current_user),
 ):
+    _enforce_ai_rate_limit(current_user, "ai_chat")
+
     try:
         result = ai_content.chat(message=data.message, context=data.context)
     except Exception:

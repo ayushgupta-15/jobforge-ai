@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+import asyncio
 import time
 from pathlib import Path
 from app.core.config import settings
@@ -18,6 +19,9 @@ from app.api.v1.endpoints import job
 from app.api.v1.endpoints import ai
 from app.api.v1.endpoints import users
 from app.api.v1.endpoints import analytics
+from app.api.v1.endpoints import email
+from app.services.email_scheduler import run_email_scheduler
+from app.services.job_embedding_backfill import run_embedding_backfill
 
 
 @asynccontextmanager
@@ -26,7 +30,24 @@ async def lifespan(app: FastAPI):
     print(f"Environment: {settings.ENVIRONMENT}")
     init_db()
     print("✅ Database initialized")
+    scheduler_stop = asyncio.Event()
+    if settings.EMAIL_SCHEDULER_ENABLED:
+        app.state.email_scheduler_stop = scheduler_stop
+        app.state.email_scheduler_task = asyncio.create_task(run_email_scheduler(scheduler_stop))
+
+    embedding_backfill_stop = asyncio.Event()
+    if settings.EMBEDDING_BACKFILL_ENABLED:
+        app.state.embedding_backfill_stop = embedding_backfill_stop
+        app.state.embedding_backfill_task = asyncio.create_task(run_embedding_backfill(embedding_backfill_stop))
+
     yield
+
+    if getattr(app.state, "email_scheduler_task", None):
+        scheduler_stop.set()
+        await app.state.email_scheduler_task
+    if getattr(app.state, "embedding_backfill_task", None):
+        embedding_backfill_stop.set()
+        await app.state.embedding_backfill_task
     print("👋 Shutting down JobForge AI API...")
 
 app = FastAPI(
@@ -91,6 +112,7 @@ app.include_router(job.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(email.router, prefix="/api/v1/email", tags=["Email"])
 
 if __name__ == "__main__":
     import uvicorn

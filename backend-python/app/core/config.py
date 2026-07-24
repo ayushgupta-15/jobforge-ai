@@ -28,6 +28,19 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = "https://openrouter.ai/api/v1"
     OPENAI_MODEL: str = "meta-llama/llama-3.1-8b-instruct"
 
+    # Embeddings (same OpenRouter account/key, embeddings-capable model)
+    EMBEDDING_MODEL: str = "openai/text-embedding-3-small"
+    EMBEDDING_DIMENSIONS: int = 1536
+
+    # Periodic job-embedding backfill (keeps Qdrant in sync with jobs the Go
+    # scraper inserts directly via SQL, which bypasses any Python-side hook)
+    EMBEDDING_BACKFILL_ENABLED: bool = True
+    EMBEDDING_BACKFILL_INTERVAL_SECONDS: int = 300
+    EMBEDDING_BACKFILL_BATCH_LIMIT: int = 25
+
+    # AI endpoint rate limiting (Redis-backed; fails open if Redis is down)
+    AI_RATE_LIMIT_PER_HOUR: int = 20
+
     # Optional (future)
     ANTHROPIC_API_KEY: Optional[str] = None
     
