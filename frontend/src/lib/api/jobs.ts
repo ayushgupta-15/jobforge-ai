@@ -1,8 +1,20 @@
 /**
- * Jobs API Client - Calls Go Backend
+ * Jobs API Client
  */
 
-const GO_API_URL = process.env.NEXT_PUBLIC_GO_API_URL || 'http://localhost:8080';
+const JOBS_API_URL =
+  process.env.NEXT_PUBLIC_GO_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:8000';
+
+if (!process.env.NEXT_PUBLIC_GO_API_URL) {
+  // NEXT_PUBLIC_GO_API_URL is unset, so job search silently falls back to the
+  // Python backend's thinner endpoint instead of the dedicated Go scraper service.
+  console.warn(
+    '[jobforge] NEXT_PUBLIC_GO_API_URL is not set — job search is falling back to ' +
+      `NEXT_PUBLIC_API_URL (${JOBS_API_URL}) instead of the Go scraper service.`
+  );
+}
 
 export interface Job {
   id: string;
@@ -36,6 +48,9 @@ export interface JobSearchParams {
   location?: string;
   remote?: boolean;
   job_type?: string;
+  experience_level?: string;
+  department?: string;
+  freshness?: '1d' | '3d' | '7d' | '30d';
   min_salary?: number;
   max_salary?: number;
   page?: number;
@@ -61,7 +76,7 @@ class JobsAPIClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = GO_API_URL;
+    this.baseURL = JOBS_API_URL;
   }
 
   /**
@@ -69,17 +84,25 @@ class JobsAPIClient {
    */
   async searchJobs(params: JobSearchParams): Promise<JobSearchResponse> {
     const queryParams = new URLSearchParams();
-    
-    if (params.query) queryParams.append('query', params.query);
-    if (params.location) queryParams.append('location', params.location);
-    if (params.remote !== undefined) queryParams.append('remote', params.remote.toString());
-    if (params.job_type) queryParams.append('job_type', params.job_type);
+
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const skip = (page - 1) * limit;
+    const searchTerm = [params.query, params.location].filter(Boolean).join(' ').trim();
+
+    queryParams.append('skip', skip.toString());
+    queryParams.append('limit', limit.toString());
+
+    if (params.experience_level) queryParams.append('experience_level', params.experience_level);
+    if (params.department) queryParams.append('department', params.department);
+    if (params.freshness) queryParams.append('freshness', params.freshness);
     if (params.min_salary) queryParams.append('min_salary', params.min_salary.toString());
     if (params.max_salary) queryParams.append('max_salary', params.max_salary.toString());
-    if (params.page) queryParams.append('page', params.page.toString());
-    if (params.limit) queryParams.append('limit', params.limit.toString());
+    if (params.job_type) queryParams.append('job_type', params.job_type);
 
-    const url = `${this.baseURL}/api/v1/jobs/search?${queryParams.toString()}`;
+    const url = searchTerm
+      ? `${this.baseURL}/api/v1/jobs/search?${queryParams.toString()}&q=${encodeURIComponent(searchTerm)}`
+      : `${this.baseURL}/api/v1/jobs?${queryParams.toString()}`;
     
     try {
       const response = await fetch(url);
@@ -88,7 +111,25 @@ class JobsAPIClient {
         throw new Error(`Search failed: ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      const jobs = Array.isArray(data) ? data : data.jobs || [];
+      const filteredJobs = params.remote
+        ? jobs.filter((job: Job) => {
+            const remoteText = [
+              job.remote_type,
+              job.ai_remote_policy,
+              job.location,
+            ].filter(Boolean).join(' ').toLowerCase();
+            return remoteText.includes('remote');
+          })
+        : jobs;
+
+      return {
+        jobs: filteredJobs,
+        count: Array.isArray(data) ? filteredJobs.length : data.count || filteredJobs.length,
+        page: Array.isArray(data) ? page : data.page || page,
+        limit: Array.isArray(data) ? limit : data.limit || limit,
+      };
     } catch (error) {
       console.error('Job search error:', error);
       throw error;

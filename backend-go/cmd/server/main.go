@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	// Load environment variables
+	// Load environment variables (local dev only)
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
@@ -30,18 +30,16 @@ func main() {
 	jobService := services.NewJobService(db)
 	scraperService := services.NewScraperService(db, jobService)
 
-	// Start background scraper (every 6 hours)
+	// Start background scraper (best-effort on free tier)
 	go func() {
 		ticker := time.NewTicker(6 * time.Hour)
 		defer ticker.Stop()
 
-		// Run immediately on startup
 		log.Println("Starting initial job scraping...")
 		if err := scraperService.ScrapeAllSources(); err != nil {
 			log.Printf("Initial scraping error: %v", err)
 		}
 
-		// Then run periodically
 		for range ticker.C {
 			log.Println("Running scheduled job scraping...")
 			if err := scraperService.ScrapeAllSources(); err != nil {
@@ -69,20 +67,23 @@ func main() {
 	// API routes
 	api := router.Group("/api/v1")
 	{
-		// Job routes
 		jobs := api.Group("/jobs")
 		{
+			jobs.GET("", handlers.SearchJobs(jobService))
 			jobs.GET("/search", handlers.SearchJobs(jobService))
 			jobs.GET("/:id", handlers.GetJob(jobService))
-			jobs.POST("/scrape", middleware.AuthMiddleware(), handlers.TriggerScrape(scraperService))
+			jobs.POST(
+				"/scrape",
+				middleware.AuthMiddleware(),
+				handlers.TriggerScrape(scraperService),
+			)
 		}
 
-		// Scraper status
 		api.GET("/scraper/status", handlers.GetScraperStatus(scraperService))
 	}
 
-	// Start server
-	port := os.Getenv("GO_PORT")
+	// IMPORTANT: Render provides PORT, not GO_PORT
+	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
