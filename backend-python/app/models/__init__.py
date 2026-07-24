@@ -6,6 +6,7 @@ from app.models.application import Application, ApplicationStatus
 from app.models.job import Job
 from app.models.job_bookmark import JobBookmark
 from app.models.interview import Interview, InterviewType, InterviewStatus
+from app.models.email import EmailTemplate, EmailSchedule, EmailScheduleStatus
 
 __all__ = [
     "User",
@@ -19,4 +20,7 @@ __all__ = [
     "Interview",
     "InterviewType",
     "InterviewStatus",
+    "EmailTemplate",
+    "EmailSchedule",
+    "EmailScheduleStatus",
 ]
