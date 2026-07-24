@@ -2,6 +2,11 @@
 """
 JobForge AI - Implementation Summary
 Visual representation of what was completed
+
+HISTORICAL PLANNING DOCUMENT — dated 2025-12-12, from the initial project
+scaffold. It describes an early, CRUD-only version of the app and does not
+reflect the current state. See the root README.md for what's actually
+built, tested, and deployed today.
 """
 
 def print_summary():

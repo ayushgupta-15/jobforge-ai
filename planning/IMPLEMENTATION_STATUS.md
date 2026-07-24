@@ -1,3 +1,7 @@
+> **⚠️ Historical planning document — dated 2025-12-12, from the initial project scaffold.**
+> It describes an early, CRUD-only version of the app and does not reflect the current state.
+> See the root [README.md](../README.md) for what's actually built, tested, and deployed today.
+
 # 🎯 JobForge AI - Implementation Status & Feature Checklist
 
 ## ✅ Completed Features
