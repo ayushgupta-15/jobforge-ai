@@ -24,7 +24,7 @@ _collection_ready = False
 def _get_client() -> QdrantClient:
     global _client
     if _client is None:
-        _client = QdrantClient(url=settings.QDRANT_URL, timeout=5.0)
+        _client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=5.0)
     return _client
 
 

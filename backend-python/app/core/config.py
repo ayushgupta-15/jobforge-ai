@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Optional services for initial deployment
     REDIS_URL: Optional[str] = None
     QDRANT_URL: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = None
     QDRANT_COLLECTION_NAME: str = "resumes"
 
     # Security
