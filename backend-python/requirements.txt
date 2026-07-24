@@ -18,7 +18,7 @@ email-validator==2.1.0.post1
 
 openai==1.10.0
 anthropic==0.8.1
-qdrant-client==1.16.1   # UPDATED for Python 3.13 compatibility
+qdrant-client==1.18.0   # kept close to the Qdrant Cloud server version (1.18.x)
 # NOTE: langchain==0.1.4 and tiktoken==0.5.2 were removed — neither was
 # imported anywhere in app/, and langchain's pinned sub-dependencies directly
 # conflicted with qdrant-client, making `pip install -r requirements.txt`
