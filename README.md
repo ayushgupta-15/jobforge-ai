@@ -26,9 +26,8 @@ JobForge AI helps job seekers optimize their application process using AI:
 - 📄 **Resume ATS Scoring** — a real LLM call (via OpenRouter) scores a resume against a job
   description and returns strengths/weaknesses/missing keywords as structured, validated JSON.
 - 🎯 **Semantic Job Matching** — resumes are embedded and matched against job postings by vector
-  similarity in Qdrant, with an automatic keyword-overlap fallback if Qdrant or the embedding
-  provider is unavailable (see [Known Limitations](#-known-limitations) — this fallback is what's
-  actually active in production right now).
+  similarity in Qdrant (live in production), with an automatic keyword-overlap fallback if Qdrant
+  or the embedding provider is unavailable.
 - 💼 **Application Tracking** — full lifecycle management for job applications.
 - 🎤 **AI Interview Prep** — interview questions generated per job posting (grounded in that job's
   actual title/description/seniority), not a static question bank.
@@ -66,8 +65,8 @@ local development against Postgres, Redis, and Qdrant.
 - **Python** 3.11+
 - **Go** 1.21+
 - **PostgreSQL** 16
-- **Redis** 7 (optional locally — see [Known Limitations](#-known-limitations))
-- **Qdrant** (optional locally — same)
+- **Redis** 7 (optional locally — required in production for caching/rate limiting)
+- **Qdrant** (optional locally — required in production for semantic matching)
 - **Docker** (optional, for `docker-compose up`)
 
 ### Local Development
@@ -115,8 +114,8 @@ local development against Postgres, Redis, and Qdrant.
 ```bash
 docker-compose up -d
 ```
-Starts local Postgres, Redis, and Qdrant containers for development (see
-[Known Limitations](#-known-limitations) for why these aren't set up in production yet).
+Starts local Postgres, Redis, and Qdrant containers for development. Production uses managed
+equivalents (Supabase Postgres, Upstash Redis, Qdrant Cloud).
 
 ## 🛠️ Tech Stack
 
@@ -130,8 +129,8 @@ Starts local Postgres, Redis, and Qdrant containers for development (see
 ### Backend
 - **Framework:** FastAPI (Python) + Gin (Go)
 - **Database:** PostgreSQL + SQLAlchemy (Python) / `lib/pq` (Go), shared `jobs` table
-- **Cache / rate limiting:** Redis (built and tested, not yet provisioned in production)
-- **Vector DB:** Qdrant (built and tested, not yet provisioned in production)
+- **Cache / rate limiting:** Redis (Upstash, live in production)
+- **Vector DB:** Qdrant (Qdrant Cloud, live in production)
 - **AI/LLM:** [OpenRouter](https://openrouter.ai/), default model `meta-llama/llama-3.1-8b-instruct`
   — configurable via `OPENAI_MODEL`, not tied to OpenAI specifically
 - **Auth:** JWT
@@ -184,16 +183,6 @@ See [SETUP.md](./docs/SETUP.md) for environment variable details.
 
 Being upfront about what's still incomplete, rather than let it be found later:
 
-- **Qdrant isn't provisioned in production yet.** The real semantic-matching code path (embed the
-  resume, query Qdrant for nearest neighbors) is built and tested, but `QDRANT_URL` isn't set to a
-  live instance in Render. Right now, live job matching runs entirely on the keyword-overlap
-  fallback path. Provisioning a Qdrant instance (Qdrant Cloud's free tier works) and setting
-  `QDRANT_URL` will activate real semantic matching with no code changes.
-- **Redis isn't provisioned in production yet**, for the same reason. Job-search caching and
-  per-user AI rate limiting are both built and tested against a real Redis in CI, but fail open
-  (allow the request through) when Redis is unreachable — so right now neither is actually
-  enforced live. Provisioning Redis (Render's Redis add-on, or any managed Redis) and setting
-  `REDIS_URL` will activate both.
 - **Email automation is scheduled/delayed send, not event-triggered.** A background loop polls for
   emails a user has scheduled and sends them via SMTP when due. Nothing sends automatically when
   an application's status changes — that would need to be built separately.
